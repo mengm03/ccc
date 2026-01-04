@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校園記帳通 Pro (互動升級版)</title>
+    
+    <!-- React & Tailwind -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- 1. SVG 圖標組件定義 ---
+        const Icons = {
+            // 支出類
+            food: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>,
+            transport: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-1.8 1.1l-1.4 5C.5 12.8 0 13.9 0 15c0 1.9 1.1 3.5 2.7 4.3 0 .2.1.3.1.5 0 1.7 1.3 3 3 3h.2c1.4 0 2.6-1.1 2.9-2.5l.1-.5h6l.1.5c.3 1.4 1.5 2.5 2.9 2.5h.2c1.6 0 2.9-1.3 2.9-3v-.5"/></svg>,
+            edu: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
+            house: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+            fun: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg>,
+            daily: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
+            other: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+            
+            // 收入類
+            salary: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
+            allowance: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 0C1.46 6.7 1.33 10.28 4 13l8 8 8-8c2.67-2.72 2.54-6.3.42-8.42z"/></svg>,
+            bonus: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+
+            // 小助手 (狗)
+            dog: <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.963-1.454 2.344-2.5"/><path d="M14.267 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.963-1.454-2.344-2.5"/><path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/><path d="M4.42 11.247A4.335 4.335 0 0 1 6.944 9h10.112a4.335 4.335 0 0 1 2.524 2.247C20.55 13.564 22.5 16.734 22.5 19.313 22.5 21.038 21.008 22 18.5 22H5.5c-2.508 0-4-1.028-4-2.687 0-2.58 1.95-5.75 2.92-8.066Z"/></svg>
+        };
+
+        // --- 2. 類別資料定義 (收入與支出分開) ---
+        const EXPENSE_CATEGORIES = [
+            { id: 'food', name: '飲食', icon: Icons.food },
+            { id: 'transport', name: '交通', icon: Icons.transport },
+            { id: 'education', name: '學業', icon: Icons.edu },
+            { id: 'housing', name: '房租', icon: Icons.house },
+            { id: 'entertainment', name: '娛樂', icon: Icons.fun },
+            { id: 'daily', name: '日用', icon: Icons.daily },
+            { id: 'other', name: '其他', icon: Icons.other },
+        ];
+
+        const INCOME_CATEGORIES = [
+            { id: 'salary', name: '薪水/打工', icon: Icons.salary },
+            { id: 'allowance', name: '零用錢', icon: Icons.allowance },
+            { id: 'bonus', name: '獎金/紅包', icon: Icons.bonus },
+            { id: 'other', name: '其他收入', icon: Icons.other },
+        ];
+
+        // --- 3. 分析圖表組件 (支援日/月切換) ---
+        const AnalysisChart = ({ transactions, typeFilter, timeFilter, currentDate }) => {
+            const chartRef = useRef(null);
+            const canvasRef = useRef(null);
+
+            // 過濾資料邏輯
+            const filteredData = useMemo(() => {
+                let targetData = transactions.filter(t => t.type === typeFilter); // 先分收支
+
+                if (timeFilter === 'day') {
+                    // 日分析：只看選定日期的
+                    targetData = targetData.filter(t => t.date === currentDate);
+                } else {
+                    // 月分析：看同一個年月 (YYYY-MM)
+                    const currentMonth = currentDate.slice(0, 7);
+                    targetData = targetData.filter(t => t.date.startsWith(currentMonth));
+                }
+                return targetData;
+            }, [transactions, typeFilter, timeFilter, currentDate]);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                // 聚合數據
+                const dataMap = {};
+                filteredData.forEach(t => {
+                    if (dataMap[t.categoryName]) {
+                        dataMap[t.categoryName] += t.amount;
+                    } else {
+                        dataMap[t.categoryName] = t.amount;
+                    }
+                });
+
+                const labels = Object.keys(dataMap);
+                const dataValues = Object.values(dataMap);
+                
+                // 配色方案
+                const bgColors = typeFilter === 'expense' 
+                    ? ['#F87171', '#FB923C', '#FACC15', '#A3E635', '#60A5FA', '#C084FC', '#9CA3AF']
+                    : ['#34D399', '#2DD4BF', '#38BDF8', '#818CF8'];
+
+                if (chartRef.current) chartRef.current.destroy();
+
+                const ctx = canvasRef.current.getContext('2d');
+                
+                // 如果沒有數據顯示空狀態文字，但這裡簡單處理：畫圖表
+                chartRef.current = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: dataValues,
+                            backgroundColor: bgColors,
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right' },
+                            title: {
+                                display: true,
+                                text: labels.length > 0 ? `${timeFilter === 'day' ? '今日' : '本月'}${typeFilter === 'expense' ? '支出' : '收入'}分佈` : '尚無資料',
+                                font: { size: 16 }
+                            }
+                        }
+                    }
+                });
+
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [filteredData, typeFilter, timeFilter]);
+
+            return (
+                <div className="h-64 w-full relative">
+                     {filteredData.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-300 z-10">
+                            <p>此區間無{typeFilter === 'expense' ? '支出' : '收入'}資料</p>
+                        </div>
+                    )}
+                    <canvas ref={canvasRef}></canvas>
+                </div>
+            );
+        };
+
+        // --- 4. 互動小助手組件 ---
+        const Assistant = ({ transactions, themeColor }) => {
+            const [msg, setMsg] = useState("嗨！今天過得好嗎？點我聊天喔！");
+            const [isAnimating, setIsAnimating] = useState(false);
+
+            const handleInteract = () => {
+                setIsAnimating(true);
+                setTimeout(() => setIsAnimating(false), 500); // 動畫復原
+
+                // 隨機回應庫
+                const responses = [
+                    "汪汪！記得記帳是致富的第一步喔！💰",
+                    "摸摸頭～今天有沒有亂花錢呀？👀",
+                    "主人最棒了！繼續保持記帳好習慣！✨",
+                    "如果錢包瘦了，我也會難過的... 🥺",
+                    "這個月要存點錢買好吃的喔！🍖",
+                    "加油加油！理財小天才就是你！🎓"
+                ];
+                
+                // 根據財務狀況加入特殊回應
+                const today = new Date().toISOString().split('T')[0];
+                const todaySpent = transactions
+                    .filter(t => t.date === today && t.type === 'expense')
+                    .reduce((acc, t) => acc + t.amount, 0);
+
+                if (todaySpent > 1000) {
+                    setMsg("哇！今天花有點多喔，注意荷包！💸");
+                } else if (todaySpent === 0) {
+                    setMsg(responses[Math.floor(Math.random() * responses.length)]);
+                } else {
+                    setMsg("有記帳就是好寶寶！乖～ 🐶");
+                }
+            };
+
+            return (
+                <div 
+                    onClick={handleInteract}
+                    className={`cursor-pointer bg-white p-4 rounded-2xl shadow-lg flex items-center gap-4 border-l-8 transition-all hover:scale-105 active:scale-95 select-none
+                    ${themeColor === 'red' ? 'border-red-400' : themeColor === 'green' ? 'border-green-400' : 'border-blue-400'}`}
+                >
+                    <div className={`p-3 rounded-full transition-transform duration-300 ${isAnimating ? 'rotate-12 scale-110' : ''}`}
+                         style={{ backgroundColor: '#F59E0B' }}>
+                        {Icons.dog}
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-800 text-sm">記帳小助手 (點我互動)</h3>
+                        <p className="text-sm text-gray-600 mt-1">{msg}</p>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 5. 主程式 ---
+        function App() {
+            // 狀態
+            const [transactions, setTransactions] = useState(() => {
+                const saved = localStorage.getItem('campus_ledger_v4');
+                return saved ? JSON.parse(saved) : [];
+            });
+            const [amount, setAmount] = useState('');
+            const [type, setType] = useState('expense'); // 'income' or 'expense'
+            
+            // 根據類型決定顯示哪個類別清單
+            const currentCategories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+            const [selectedCategory, setSelectedCategory] = useState(currentCategories[0].id);
+            
+            const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+            const [themeColor, setThemeColor] = useState('blue');
+
+            // 圖表篩選狀態
+            const [chartTimeFilter, setChartTimeFilter] = useState('month'); // 'day' or 'month'
+
+            // 存檔與類別重置
+            useEffect(() => {
+                localStorage.setItem('campus_ledger_v4', JSON.stringify(transactions));
+            }, [transactions]);
+
+            // 當切換收支類型時，重置選中的類別為該列表的第一個，避免 icon 錯誤
+            useEffect(() => {
+                const newCats = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+                setSelectedCategory(newCats[0].id);
+            }, [type]);
+
+            // 計算當月數據
+            const stats = useMemo(() => {
+                const currentMonth = date.slice(0, 7);
+                const monthTrans = transactions.filter(t => t.date.startsWith(currentMonth));
+                
+                const income = monthTrans.filter(t => t.type === 'income').reduce((acc, c) => acc + c.amount, 0);
+                const expense = monthTrans.filter(t => t.type === 'expense').reduce((acc, c) => acc + c.amount, 0);
+                return { income, expense, balance: income - expense };
+            }, [transactions, date]);
+
+            // 動作
+            const addTransaction = (e) => {
+                e.preventDefault();
+                if (!amount) return;
+
+                const categoryObj = currentCategories.find(c => c.id === selectedCategory);
+                const newTransaction = {
+                    id: Date.now(),
+                    categoryName: categoryObj.name,
+                    categoryId: categoryObj.id, // 用於找回 icon
+                    amount: parseFloat(amount),
+                    type,
+                    date,
+                };
+                setTransactions([newTransaction, ...transactions]);
+                setAmount('');
+            };
+
+            const deleteTransaction = (id) => {
+                setTransactions(transactions.filter(t => t.id !== id));
+            };
+
+            // 主題樣式
+            const colors = [
+                { id: 'red', hex: '#EF4444' }, { id: 'orange', hex: '#F97316' }, 
+                { id: 'yellow', hex: '#EAB308' }, { id: 'green', hex: '#22C55E' },
+                { id: 'blue', hex: '#3B82F6' }, { id: 'purple', hex: '#A855F7' }
+            ];
+
+            const getTheme = (c) => {
+                const map = {
+                    red: { bg: 'bg-red-50', text: 'text-red-600', btn: 'bg-red-500 hover:bg-red-600', border: 'border-red-500' },
+                    blue: { bg: 'bg-blue-50', text: 'text-blue-600', btn: 'bg-blue-500 hover:bg-blue-600', border: 'border-blue-500' },
+                    green: { bg: 'bg-green-50', text: 'text-green-600', btn: 'bg-green-500 hover:bg-green-600', border: 'border-green-500' },
+                    orange: { bg: 'bg-orange-50', text: 'text-orange-600', btn: 'bg-orange-500 hover:bg-orange-600', border: 'border-orange-500' },
+                    purple: { bg: 'bg-purple-50', text: 'text-purple-600', btn: 'bg-purple-500 hover:bg-purple-600', border: 'border-purple-500' },
+                    yellow: { bg: 'bg-yellow-50', text: 'text-yellow-600', btn: 'bg-yellow-500 hover:bg-yellow-600', border: 'border-yellow-500' },
+                };
+                return map[c] || map.blue;
+            };
+            const theme = getTheme(themeColor);
+
+            return (
+                <div className={`min-h-screen p-4 md:p-8 flex flex-col items-center transition-colors duration-500 ${theme.bg}`}>
+                    
+                    {/* Header */}
+                    <header className="w-full max-w-7xl flex justify-between items-center mb-8 bg-white p-5 rounded-2xl shadow-sm">
+                        <h1 className={`text-2xl md:text-3xl font-bold ${theme.text} flex items-center gap-2`}>
+                            🎓 校園記帳通 Pro
+                        </h1>
+                        <div className="flex gap-2">
+                            {colors.map((c) => (
+                                <button
+                                    key={c.id}
+                                    onClick={() => setThemeColor(c.id)}
+                                    className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${themeColor === c.id ? 'border-gray-600 scale-110 ring-2 ring-offset-1 ring-gray-300' : 'border-white'}`}
+                                    style={{ backgroundColor: c.hex }}
+                                />
+                            ))}
+                        </div>
+                    </header>
+
+                    {/* Main Layout */}
+                    <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
+                        
+                        {/* 左側：操作區 (5欄) */}
+                        <div className="lg:col-span-5 flex flex-col gap-6">
+                            
+                            {/* 記帳卡片 */}
+                            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl">
+                                <form onSubmit={addTransaction}>
+                                    
+                                    {/* 收支切換按鈕 (大按鈕) */}
+                                    <div className="grid grid-cols-2 gap-4 mb-8">
+                                        <button
+                                            type="button"
+                                            onClick={() => setType('expense')}
+                                            className={`py-4 rounded-2xl font-bold text-xl shadow-sm transition-all duration-300 transform hover:scale-105 flex flex-col items-center gap-1
+                                                ${type === 'expense' ? 'bg-red-500 text-white ring-4 ring-red-100 shadow-red-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                                        >
+                                            <span className="text-2xl">💸</span> 支出
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setType('income')}
+                                            className={`py-4 rounded-2xl font-bold text-xl shadow-sm transition-all duration-300 transform hover:scale-105 flex flex-col items-center gap-1
+                                                ${type === 'income' ? 'bg-green-500 text-white ring-4 ring-green-100 shadow-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                                        >
+                                            <span className="text-2xl">💰</span> 收入
+                                        </button>
+                                    </div>
+
+                                    {/* 日期與金額 */}
+                                    <div className="space-y-4 mb-8">
+                                        <div>
+                                            <label className="text-xs text-gray-400 font-bold ml-1 uppercase tracking-wider">Date</label>
+                                            <input
+                                                type="date"
+                                                value={date}
+                                                onChange={(e) => setDate(e.target.value)}
+                                                className="w-full mt-1 p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 font-medium text-gray-600"
+                                            />
+                                        </div>
+                                        <div className="relative">
+                                            <label className="text-xs text-gray-400 font-bold ml-1 uppercase tracking-wider">Amount</label>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={amount}
+                                                onChange={(e) => setAmount(e.target.value)}
+                                                className={`w-full mt-1 p-4 pl-4 pr-10 text-3xl font-bold text-right border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 transition-colors 
+                                                    ${type === 'expense' ? 'text-red-500 focus:ring-red-200' : 'text-green-500 focus:ring-green-200'}`}
+                                                required
+                                            />
+                                            <span className="absolute right-4 bottom-4 text-gray-400 text-lg font-bold">$</span>
+                                        </div>
+                                    </div>
+
+                                    {/* 類別選擇 (動態清單) */}
+                                    <div className="mb-8">
+                                        <label className="text-xs text-gray-400 font-bold ml-1 uppercase tracking-wider mb-2 block">Category</label>
+                                        <div className="grid grid-cols-4 gap-3">
+                                            {currentCategories.map((cat) => (
+                                                <button
+                                                    key={cat.id}
+                                                    type="button"
+                                                    onClick={() => setSelectedCategory(cat.id)}
+                                                    className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-200 ${
+                                                        selectedCategory === cat.id 
+                                                        ? `${theme.border} bg-white scale-105 shadow-md z-10` 
+                                                        : 'border-transparent text-gray-400 hover:bg-gray-100 hover:scale-105'
+                                                    }`}
+                                                >
+                                                    <div className={`${selectedCategory === cat.id ? theme.text : 'text-gray-400'}`}>
+                                                        {cat.icon}
+                                                    </div>
+                                                    <span className={`text-xs mt-2 font-bold ${selectedCategory === cat.id ? 'text-gray-700' : ''}`}>{cat.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all active:scale-95 flex justify-center items-center gap-2 ${theme.btn}`}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                                        確認記帳
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* 互動小助手 */}
+                            <Assistant transactions={transactions} themeColor={themeColor} />
+                        </div>
+
+                        {/* 右側：數據與圖表 (7欄) */}
+                        <div className="lg:col-span-7 flex flex-col gap-6">
+                            
+                            {/* 頂部數據卡片 (本月統計) */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border-b-4 border-green-400">
+                                    <p className="text-sm text-gray-400 font-bold">本月收入</p>
+                                    <p className="text-2xl font-bold text-green-500 mt-1">+${stats.income}</p>
+                                </div>
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border-b-4 border-red-400">
+                                    <p className="text-sm text-gray-400 font-bold">本月支出</p>
+                                    <p className="text-2xl font-bold text-red-500 mt-1">-${stats.expense}</p>
+                                </div>
+                                <div className="bg-white p-5 rounded-2xl shadow-sm border-b-4 border-blue-400">
+                                    <p className="text-sm text-gray-400 font-bold">目前結餘</p>
+                                    <p className={`text-2xl font-bold mt-1 ${stats.balance >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                                        ${stats.balance}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[400px]">
+                                
+                                {/* 左：分析圖表 */}
+                                <div className="bg-white p-6 rounded-3xl shadow-lg flex flex-col">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                                            📊 收支分析
+                                        </h3>
+                                        {/* 日/月切換按鈕 */}
+                                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                                            <button 
+                                                onClick={() => setChartTimeFilter('day')}
+                                                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${chartTimeFilter === 'day' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}
+                                            >
+                                                今日
+                                            </button>
+                                            <button 
+                                                onClick={() => setChartTimeFilter('month')}
+                                                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${chartTimeFilter === 'month' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}
+                                            >
+                                                本月
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* 圖表本體 */}
+                                    <div className="flex-1 flex items-center justify-center relative">
+                                        <AnalysisChart 
+                                            transactions={transactions} 
+                                            typeFilter={type} // 跟隨左側選擇的收支類型
+                                            timeFilter={chartTimeFilter}
+                                            currentDate={date}
+                                        />
+                                    </div>
+                                    <p className="text-center text-xs text-gray-400 mt-4">
+                                        目前顯示：{chartTimeFilter === 'day' ? '今日' : '本月'}的
+                                        <span className={type === 'expense' ? 'text-red-500 font-bold' : 'text-green-500 font-bold'}>
+                                            {type === 'expense' ? ' 支出 ' : ' 收入 '}
+                                        </span>
+                                        組成
+                                    </p>
+                                </div>
+
+                                {/* 右：近期紀錄列表 */}
+                                <div className="bg-white p-6 rounded-3xl shadow-lg flex flex-col h-[500px] md:h-auto">
+                                    <h3 className="font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
+                                        📝 近期明細 <span className="text-xs font-normal text-gray-400 ml-auto">最新 50 筆</span>
+                                    </h3>
+                                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                                        {transactions.length === 0 ? (
+                                            <div className="h-full flex flex-col items-center justify-center text-gray-300">
+                                                <p className="text-4xl mb-2">🍃</p>
+                                                <p>還沒有紀錄喔</p>
+                                            </div>
+                                        ) : (
+                                            transactions.sort((a,b) => b.id - a.id).slice(0, 50).map((t) => {
+                                                // 查找 icon，需要搜尋兩個列表
+                                                const catExpense = EXPENSE_CATEGORIES.find(c => c.id === t.categoryId);
+                                                const catIncome = INCOME_CATEGORIES.find(c => c.id === t.categoryId);
+                                                const cat = catExpense || catIncome || EXPENSE_CATEGORIES[6];
+                                                
+                                                return (
+                                                    <div key={t.id} className="flex justify-between items-center p-3 mb-2 rounded-2xl hover:bg-gray-50 transition group border border-transparent hover:border-gray-100">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className={`p-3 rounded-2xl ${t.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
+                                                                {cat.icon}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-gray-700">{cat.name}</p>
+                                                                <p className="text-xs text-gray-400 font-medium">{t.date}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className={`font-bold text-lg ${t.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                                                                {t.type === 'income' ? '+' : '-'}${t.amount}
+                                                            </span>
+                                                            <button onClick={() => deleteTransaction(t.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-2">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 text-center text-gray-400 text-xs">
+                        Designed for Students • 資料儲存於瀏覽器
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
