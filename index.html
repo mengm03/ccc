@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>校園記帳通 Pro (互動升級版)</title>
+    <title>校園記帳通</title>
     
     <!-- React & Tailwind -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -146,7 +146,7 @@
 
         // --- 4. 互動小助手組件 ---
         const Assistant = ({ transactions, themeColor }) => {
-            const [msg, setMsg] = useState("嗨！今天過得好嗎？點我聊天喔！");
+            const [msg, setMsg] = useState("嗨～今天過得好嗎？點我聊天喔！");
             const [isAnimating, setIsAnimating] = useState(false);
 
             const handleInteract = () => {
@@ -155,11 +155,12 @@
 
                 // 隨機回應庫
                 const responses = [
-                    "汪汪！記得記帳是致富的第一步喔！💰",
-                    "摸摸頭～今天有沒有亂花錢呀？👀",
-                    "主人最棒了！繼續保持記帳好習慣！✨",
-                    "如果錢包瘦了，我也會難過的... 🥺",
-                    "這個月要存點錢買好吃的喔！🍖",
+                    "要記得「每日記帳」是致富的第一步喔！💰",
+                    "今天有沒有亂花錢呀？👀",
+                    "你最棒了！繼續保持記帳的好習慣！✨",
+                    "如果錢包變瘦了，我也會著難過的... 🥺",
+                    "這個月也要努力存錢歐！💪",
+                    "保持好心情度過每一天～🥳",
                     "加油加油！理財小天才就是你！🎓"
                 ];
                 
@@ -170,11 +171,11 @@
                     .reduce((acc, t) => acc + t.amount, 0);
 
                 if (todaySpent > 1000) {
-                    setMsg("哇！今天花有點多喔，注意荷包！💸");
+                    setMsg("哇！今天花的有點多歐，注意荷包！💸");
                 } else if (todaySpent === 0) {
                     setMsg(responses[Math.floor(Math.random() * responses.length)]);
                 } else {
-                    setMsg("有記帳就是好寶寶！乖～ 🐶");
+                    setMsg("有記帳就是好寶寶！🐶");
                 }
             };
 
@@ -285,7 +286,7 @@
                     {/* Header */}
                     <header className="w-full max-w-7xl flex justify-between items-center mb-8 bg-white p-5 rounded-2xl shadow-sm">
                         <h1 className={`text-2xl md:text-3xl font-bold ${theme.text} flex items-center gap-2`}>
-                            🎓 校園記帳通 Pro
+                            🎓 校園記帳通
                         </h1>
                         <div className="flex gap-2">
                             {colors.map((c) => (
